@@ -302,8 +302,8 @@
 
     <div class="controls">
       <div class="ctrl-group">
-        <button class="btn" onclick="go(cur-1)">◀ 이전</button>
-        <button class="btn" onclick="go(cur+1)">다음 ▶</button>
+        <button class="btn" onclick="prev()">◀ 이전</button>
+        <button class="btn" onclick="next()">다음 ▶</button>
       </div>
       <div class="ctrl-group">
         <button class="btn btn-blue"   id="ans-btn"  onclick="toggleAns()">정답 표시 켜기</button>
@@ -483,7 +483,9 @@ function parseQuestions(fullText) {
 }
 
 // ── 문제 렌더 ──
-window.go = function(idx) { renderQ(idx); };
+window.go   = function(idx) { renderQ(idx); };
+window.prev = function()    { renderQ(cur - 1); };
+window.next = function()    { renderQ(cur + 1); };
 
 function renderQ(idx) {
   idx = Math.max(0, Math.min(idx, totalQ - 1));
