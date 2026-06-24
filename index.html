@@ -463,6 +463,7 @@ function parseQuestions(fullText) {
     const answerList = [...ansRaw.toUpperCase().replace(/[^A-F]/g, '')];
     let rawContent = chunk.slice(0, ansMatch.index).trim();
 
+    rawContent = rawContent.replace(/^\s*\d+\s*$/gm, '');
     rawContent = rawContent.replace(/IT Certification Guaranteed[^.\n]*.?/gi, '');
     rawContent = rawContent.replace(/The Easy Way!?/gi, '');
     rawContent = rawContent.replace(/\n/g, ' ');
