@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AWS 실전 모의고사</title>
+<style>
+  :root {
+    --fs: 15px;
+    --accent: #3b82f6;
+    --accent-dark: #1d4ed8;
+    --correct: #16a34a;
+    --wrong:   #dc2626;
+    --neutral: #64748b;
+    --bg:      #e9ecef;
+    --card:    #ffffff;
+    --border:  #ced4da;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Malgun Gothic','Apple SD Gothic Neo',sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    padding: 20px;
+    color: #333;
+  }
+
+  .wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    background: var(--card);
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 16px rgba(0,0,0,.1);
+    padding: 30px;
+  }
+
+  /* ── SETUP ── */
+  #setup { text-align: center; padding: 40px 0 60px; }
+  #setup h1 { font-size: 26px; color: #1e293b; margin-bottom: 8px; }
+  #setup .sub { color: #64748b; font-size: 14px; margin-bottom: 32px; }
+
+  .drop-zone {
+    border: 2px dashed var(--accent);
+    border-radius: 14px;
+    padding: 44px 24px;
+    background: #f0f7ff;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    max-width: 480px;
+    margin: 0 auto 20px;
+    user-select: none;
+  }
+  .drop-zone:hover, .drop-zone.over { background: #dbeafe; border-color: var(--accent-dark); }
+  .drop-zone .dz-icon  { font-size: 48px; line-height: 1; margin-bottom: 10px; }
+  .drop-zone .dz-main  { font-size: 16px; font-weight: 700; color: var(--accent); margin-bottom: 5px; }
+  .drop-zone .dz-sub   { font-size: 13px; color: #94a3b8; }
+  #file-input { display: none; }
+
+  #loading {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 15px;
+    margin-top: 16px;
+  }
+  .spin {
+    width: 18px; height: 18px;
+    border: 3px solid #bfdbfe;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── PROGRESS ── */
+  .prog-wrap { margin-bottom: 18px; }
+  .prog-info { display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-bottom: 5px; }
+  .prog-bg   { background: #e2e8f0; border-radius: 99px; height: 8px; overflow: hidden; }
+  .prog-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg,var(--accent),#06b6d4); transition: width .4s; }
+
+  /* ── HEADER ── */
+  .q-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #ddd;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .q-title { font-size: 17px; font-weight: 700; color: #2c3e50; }
+
+  .font-ctrl { display: flex; align-items: center; gap: 5px; }
+  .font-ctrl span { font-size: 13px; font-weight: 600; color: #555; }
+
+  /* ── QUESTION ── */
+  .q-body {
+    background: #f8f9fa;
+    border: 1px solid var(--border);
+    padding: 20px;
+    line-height: 1.65;
+    font-size: var(--fs);
+    margin-bottom: 20px;
+  }
+  .options { margin-bottom: 28px; }
+  .opt {
+    display: flex;
+    align-items: flex-start;
+    padding: 12px;
+    border-bottom: 1px dotted #ccc;
+    background: #fff;
+    transition: background .15s;
+    cursor: pointer;
+  }
+  .opt:hover { background: #f1f3f5; }
+  .opt input { margin-top: 3px; margin-right: 12px; transform: scale(1.35); cursor: pointer; flex-shrink: 0; }
+  .opt label { font-size: var(--fs); line-height: 1.5; cursor: pointer; width: 100%; }
+
+  /* ── CONTROLS ── */
+  .controls {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    z-index: 100;
+    padding: 16px 0 28px;
+    border-top: 2px solid #ddd;
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .ctrl-group { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    padding: 9px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background: #f8f9fa;
+    transition: background .12s, transform .08s;
+    white-space: nowrap;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn:hover  { background: #e2e6ea; }
+  .btn-sm     { padding: 4px 10px; font-size: 13px; }
+  .btn-blue   { background: var(--accent); color: #fff; border: none; }
+  .btn-blue:hover   { background: var(--accent-dark); }
+  .btn-orange { background: #e67e22; color: #fff; border: none; }
+  .btn-orange:hover { background: #d35400; }
+  .btn-purple { background: #9b59b6; color: #fff; border: none; }
+  .btn-purple:hover { background: #8e44ad; }
+  .btn-teal   { background: #0f766e; color: #fff; border: none; }
+  .btn-teal:hover   { background: #115e59; }
+  .btn-red    { background: #dc2626; color: #fff; border: none; }
+  .btn-red:hover    { background: #b91c1c; }
+
+  /* ── JUMP ── */
+  .jump-input {
+    width: 56px; padding: 6px 4px;
+    text-align: center; border: 1px solid #ccc; border-radius: 4px;
+    font-size: 14px;
+  }
+
+  /* ── FEEDBACK ── */
+  .feedback {
+    display: none;
+    margin: 0 0 20px;
+    padding: 18px 20px;
+    border-radius: 6px;
+    font-size: var(--fs);
+    line-height: 1.6;
+  }
+  .fb-review { background: #fff3cd; border: 1px solid #ffeeba; }
+  .t-green { color: #27ae60 !important; font-weight: 700; }
+  .t-red   { color: #c0392b !important; text-decoration: line-through; }
+
+  /* ── STATUS DOT ── */
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-left: 7px; vertical-align: middle; }
+  .dot-done { background: var(--accent); }
+  .dot-skip { background: #f59e0b; }
+  .dot-none { background: #cbd5e1; }
+
+  /* ── MODAL ── */
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 9000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: #fff;
+    border-radius: 14px;
+    padding: 36px 40px;
+    max-width: 500px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    position: relative;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h2 { font-size: 21px; color: #1e293b; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 24px; }
+  .modal-x { position: absolute; top: 15px; right: 18px; font-size: 22px; background: none; border: none; cursor: pointer; color: #94a3b8; line-height: 1; }
+  .modal-x:hover { color: #334155; }
+
+  .score-big   { text-align: center; margin: 16px 0 26px; }
+  .score-num   { font-size: 58px; font-weight: 900; line-height: 1; }
+  .score-num.pass { color: var(--correct); }
+  .score-num.fail { color: var(--wrong); }
+  .score-sub   { font-size: 13px; color: #64748b; margin-top: 5px; }
+  .badge       { display: inline-block; margin-top: 9px; padding: 4px 16px; border-radius: 99px; font-size: 13px; font-weight: 700; }
+  .badge-pass  { background: #dcfce7; color: #15803d; }
+  .badge-fail  { background: #fee2e2; color: #b91c1c; }
+
+  .s-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 22px; }
+  .s-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; padding: 14px 8px; text-align: center; }
+  .s-val  { font-size: 26px; font-weight: 800; }
+  .s-lbl  { font-size: 11px; color: #94a3b8; margin-top: 3px; }
+  .c-val  { color: var(--correct); }
+  .w-val  { color: var(--wrong); }
+  .u-val  { color: var(--neutral); }
+
+  .bar-row  { margin-top: 10px; }
+  .bar-info { display: flex; justify-content: space-between; font-size: 12px; color: #64748b; margin-bottom: 4px; }
+  .bar-bg   { background: #e2e8f0; border-radius: 99px; height: 10px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 99px; transition: width .6s; }
+  .bc { background: var(--correct); }
+  .bw { background: var(--wrong); }
+  .bu { background: var(--neutral); }
+
+  .modal-foot { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; flex-wrap: wrap; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    body    { padding: 10px; }
+    .wrap   { padding: 14px; }
+    .controls { padding: 12px 0 20px; }
+    .s-grid { grid-template-columns: 1fr 1fr; }
+    .modal  { padding: 22px 16px; }
+    .score-num { font-size: 44px; }
+    .modal-foot { justify-content: center; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ══════════ SETUP ══════════ -->
+  <div id="setup">
+    <h1>☁️ AWS 실전 모의고사</h1>
+    <p class="sub">Dump PDF를 올리면 바로 퀴즈가 시작됩니다 · PC / 모바일 모두 지원</p>
+
+    <div class="drop-zone" id="drop-zone">
+      <div class="dz-icon">📄</div>
+      <div class="dz-main">클릭하거나 PDF를 여기로 드래그하세요</div>
+      <div class="dz-sub">최대 100MB · 브라우저에서만 처리되며 서버로 전송되지 않습니다</div>
+    </div>
+    <input type="file" id="file-input" accept=".pdf">
+
+    <div id="loading">
+      <div class="spin"></div>
+      <span id="loading-msg">PDF 분석 중…</span>
+    </div>
+  </div>
+
+  <!-- ══════════ QUIZ ══════════ -->
+  <div id="quiz" style="display:none">
+
+    <div class="prog-wrap">
+      <div class="prog-info">
+        <span id="prog-text">0 / 0 문제 완료</span>
+        <span id="prog-pct">0%</span>
+      </div>
+      <div class="prog-bg"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+
+    <div class="q-header">
+      <div class="q-title" id="q-title">NO.1</div>
+      <div class="font-ctrl">
+        <span>글자 크기</span>
+        <button class="btn btn-sm" onclick="fsz(-2)">A−</button>
+        <button class="btn btn-sm" onclick="fsz(+2)">A+</button>
+      </div>
+    </div>
+
+    <div class="q-body" id="q-body"></div>
+    <div class="options" id="q-opts"></div>
+    <div class="feedback" id="feedback"></div>
+
+    <div class="controls">
+      <div class="ctrl-group">
+        <button class="btn" onclick="go(cur-1)">◀ 이전</button>
+        <button class="btn" onclick="go(cur+1)">다음 ▶</button>
+      </div>
+      <div class="ctrl-group">
+        <button class="btn btn-blue"   id="ans-btn"  onclick="toggleAns()">정답 표시 켜기</button>
+        <button class="btn btn-purple"               onclick="doShuffle()">🔀 랜덤 섞기</button>
+        <button class="btn btn-teal"                 onclick="openScore()">📊 점수 확인</button>
+        <button class="btn btn-red"                  onclick="goSetup()">🔄 처음으로</button>
+      </div>
+      <div class="ctrl-group">
+        이동: <input class="jump-input" type="number" id="jump" min="1">
+        <button class="btn" onclick="jumpTo()">GO</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SCORE MODAL ══════════ -->
+<div class="overlay" id="score-modal">
+  <div class="modal">
+    <button class="modal-x" onclick="closeScore()">✕</button>
+    <h2>📊 현재 점수 기록</h2>
+
+    <div class="score-big">
+      <div class="score-num" id="m-pct">0%</div>
+      <div class="score-sub" id="m-frac">정답 0 / 제출 0 문제</div>
+      <div><span class="badge" id="m-badge">-</span></div>
+    </div>
+
+    <div class="s-grid">
+      <div class="s-card"><div class="s-val c-val" id="m-c">0</div><div class="s-lbl">✅ 정답</div></div>
+      <div class="s-card"><div class="s-val w-val" id="m-w">0</div><div class="s-lbl">❌ 오답</div></div>
+      <div class="s-card"><div class="s-val u-val" id="m-u">0</div><div class="s-lbl">미풀이/패스</div></div>
+    </div>
+
+    <div class="bar-row">
+      <div class="bar-info"><span>정답</span><span id="bc-pct">0%</span></div>
+      <div class="bar-bg"><div class="bar-fill bc" id="bc" style="width:0%"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-info"><span>오답</span><span id="bw-pct">0%</span></div>
+      <div class="bar-bg"><div class="bar-fill bw" id="bw" style="width:0%"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-info"><span>미풀이/패스</span><span id="bu-pct">0%</span></div>
+      <div class="bar-bg"><div class="bar-fill bu" id="bu" style="width:0%"></div></div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn" onclick="closeScore()">닫기</button>
+      <button class="btn btn-blue" onclick="resetScore()">기록 초기화</button>
+    </div>
+  </div>
+</div>
+
+<!-- pdf.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+<script type="module">
+// ── pdf.js 워커 설정 ──
+import * as pdfjsLib from 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs';
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+
+// ── 상태 ──
+let questions = [];
+let cur       = 0;
+let ansMode   = false;
+let results   = {};   // idx -> 'correct'|'wrong'|'skip'
+let choices   = {};   // idx -> ['A','B',...]
+let totalQ    = 0;
+let fontSize  = 15;
+
+// ── 파일 업로드 ──
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadPDF(e.target.files[0]); });
+
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type === 'application/pdf') loadPDF(f);
+  else alert('PDF 파일만 업로드 가능합니다.');
+});
+
+// ── PDF 파싱 ──
+async function loadPDF(file) {
+  const loading = document.getElementById('loading');
+  const msg     = document.getElementById('loading-msg');
+  loading.style.display = 'flex';
+  msg.textContent = 'PDF 불러오는 중…';
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      msg.textContent = `페이지 분석 중… (${i}/${pdf.numPages})`;
+      const page    = await pdf.getPage(i);
+      const content = await page.getTextContent();
+
+      // 줄 단위로 재조합 (y 좌표 기준 그룹핑)
+      const lineMap = new Map();
+      for (const item of content.items) {
+        if (!item.str) continue;
+        const y = Math.round(item.transform[5]);
+        if (!lineMap.has(y)) lineMap.set(y, []);
+        lineMap.get(y).push({ x: item.transform[4], str: item.str });
+      }
+      const sortedYs = [...lineMap.keys()].sort((a, b) => b - a);
+      for (const y of sortedYs) {
+        const items = lineMap.get(y).sort((a, b) => a.x - b.x);
+        fullText += items.map(i => i.str).join(' ') + '\n';
+      }
+    }
+
+    questions = parseQuestions(fullText);
+    if (!questions.length) {
+      alert('문제를 찾지 못했습니다.\nPDF 형식을 확인해주세요.');
+      loading.style.display = 'none';
+      return;
+    }
+
+    totalQ  = questions.length;
+    results = {};
+    choices = {};
+    cur     = 0;
+
+    loading.style.display = 'none';
+    document.getElementById('setup').style.display = 'none';
+    document.getElementById('quiz').style.display  = 'block';
+    renderQ(0);
+
+  } catch (e) {
+    loading.style.display = 'none';
+    alert('PDF 파싱 오류: ' + e.message);
+    console.error(e);
+  }
+}
+
+// ── 문제 파싱 (Python 로직 → JS 1:1 변환) ──
+function parseQuestions(fullText) {
+  const chunks = fullText.split(/(?=NO\.\s*\d+)/i);
+  const qs = [];
+
+  for (const chunk of chunks) {
+    const matchNo = chunk.trim().match(/^NO\.\s*(\d+)/i);
+    if (!matchNo) continue;
+
+    const realNum = matchNo[1];
+    const ansMatch = chunk.match(/Answer:\s*([A-F](?:[\s,]*[A-F])*)/i);
+    if (!ansMatch) continue;
+
+    const answerList = [...ansMatch[1].toUpperCase().replace(/[^A-F]/g, '')];
+    let rawContent = chunk.slice(0, ansMatch.index).trim();
+
+    rawContent = rawContent.replace(/\n/g, ' ');
+    rawContent = rawContent.replace(/\s+/g, ' ');
+    rawContent = rawContent.replace(/NO\.\s*\d+[\s/\-]*[A-Z0-9\-]*\s*V?\d*\.?\d*\s*/gi, '');
+
+    const parts = rawContent.split(/\s([A-F]\.)\s/);
+    const body  = parts[0].trim();
+    const opts  = {};
+
+    for (let i = 1; i < parts.length; i += 2) {
+      const letter = parts[i][0].toUpperCase();
+      const text   = (parts[i + 1] || '').trim();
+      opts[letter] = text;
+    }
+
+    qs.push({ realNum, body, options: opts, answer: answerList });
+  }
+  return qs;
+}
+
+// ── 문제 렌더 ──
+window.go = function(idx) { renderQ(idx); };
+
+function renderQ(idx) {
+  idx = Math.max(0, Math.min(idx, totalQ - 1));
+  cur = idx;
+
+  const q  = questions[cur];
+  const st = results[cur];
+  const dotCls = st === 'correct' || st === 'wrong' ? 'dot dot-done'
+               : st === 'skip' ? 'dot dot-skip'
+               : 'dot dot-none';
+
+  document.getElementById('q-title').innerHTML =
+    `현재 ${cur+1} / 전체 ${totalQ}문제 &nbsp;(원본: NO.${q.realNum})<span class="${dotCls}"></span>`;
+  document.getElementById('q-body').innerHTML = q.body.replace(/\n/g, '<br>');
+
+  let html = '';
+  for (const [letter, text] of Object.entries(q.options)) {
+    html += `<div class="opt">
+      <input type="checkbox" name="ans" value="${letter}" id="c-${letter}" onchange="saveChoice()">
+      <label for="c-${letter}" id="lbl-${letter}"><strong>${letter}.</strong> ${text}</label>
+    </div>`;
+  }
+  document.getElementById('q-opts').innerHTML = html;
+  document.getElementById('jump').value = cur + 1;
+
+  const saved = choices[cur] || [];
+  document.querySelectorAll('input[name="ans"]').forEach(el => {
+    el.checked = saved.includes(el.value);
+  });
+
+  updateProg();
+  if (ansMode) showAns(true); else hideAns();
+  window.scrollTo(0, 0);
+}
+
+// ── 답 저장 / 자동채점 ──
+window.saveChoice = function() {
+  if (ansMode) return;
+  const checked = [...document.querySelectorAll('input[name="ans"]:checked')].map(e => e.value);
+
+  if (!checked.length) {
+    delete choices[cur];
+    delete results[cur];
+  } else {
+    choices[cur] = checked;
+    const correct   = questions[cur].answer;
+    const isCorrect = checked.slice().sort().join() === correct.slice().sort().join();
+    results[cur] = isCorrect ? 'correct' : 'wrong';
+  }
+  updateProg();
+
+  const dot = document.querySelector('.dot');
+  if (dot) {
+    dot.className = 'dot ' + (results[cur] === 'correct' || results[cur] === 'wrong' ? 'dot-done'
+                            : results[cur] === 'skip' ? 'dot-skip' : 'dot-none');
+  }
+};
+
+// ── 진행률 ──
+function updateProg() {
+  const done = Object.keys(results).length;
+  const pct  = totalQ > 0 ? Math.round(done / totalQ * 100) : 0;
+  document.getElementById('prog-text').textContent = `${done} / ${totalQ} 문제 완료`;
+  document.getElementById('prog-pct').textContent  = `${pct}%`;
+  document.getElementById('prog-fill').style.width = `${pct}%`;
+}
+
+// ── 정답 모드 ──
+window.toggleAns = function() {
+  ansMode = !ansMode;
+  const btn = document.getElementById('ans-btn');
+  if (ansMode) {
+    btn.textContent = '정답 표시 끄기';
+    btn.className   = 'btn btn-orange';
+    showAns(true);
+  } else {
+    btn.textContent = '정답 표시 켜기';
+    btn.className   = 'btn btn-blue';
+    hideAns();
+    const saved = choices[cur] || [];
+    document.querySelectorAll('input[name="ans"]').forEach(el => { el.checked = saved.includes(el.value); });
+  }
+};
+
+function hideAns() {
+  document.getElementById('feedback').style.display = 'none';
+  document.querySelectorAll('input[name="ans"]').forEach(el => {
+    const lbl = document.getElementById('lbl-' + el.value);
+    if (lbl) lbl.classList.remove('t-green', 't-red');
+  });
+}
+
+function showAns(isSkip) {
+  const saved   = choices[cur] || [];
+  const correct = questions[cur].answer;
+  const fb      = document.getElementById('feedback');
+  fb.style.display = 'block';
+  fb.className     = 'feedback fb-review';
+
+  document.querySelectorAll('input[name="ans"]').forEach(el => {
+    const lbl = document.getElementById('lbl-' + el.value);
+    if (!lbl) return;
+    lbl.classList.remove('t-green', 't-red');
+    if (correct.includes(el.value)) {
+      lbl.classList.add('t-green');
+      el.checked = true;
+    } else if (saved.includes(el.value)) {
+      lbl.classList.add('t-red');
+    }
+  });
+
+  fb.innerHTML = `<span style="color:#856404;font-size:1.05em"><strong>📖 정답/해설 모드</strong></span><br><br><strong>[ 정답: ${correct.join(', ')} ]</strong>`;
+
+  if (isSkip && results[cur] === undefined) {
+    results[cur] = 'skip';
+    updateProg();
+    const dot = document.querySelector('.dot');
+    if (dot) dot.className = 'dot dot-skip';
+  }
+}
+
+// ── 셔플 ──
+window.doShuffle = function() {
+  if (!confirm('문제를 무작위로 섞으시겠습니까?\n(1번째 문제로 돌아가며 점수 기록도 초기화됩니다)')) return;
+  for (let i = questions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [questions[i], questions[j]] = [questions[j], questions[i]];
+  }
+  results = {}; choices = {};
+  updateProg();
+  renderQ(0);
+};
+
+// ── 처음으로 ──
+window.goSetup = function() {
+  if (!confirm('처음으로 돌아가 새 PDF를 업로드하시겠습니까?')) return;
+  questions = []; results = {}; choices = {};
+  document.getElementById('quiz').style.display  = 'none';
+  document.getElementById('setup').style.display = 'block';
+  document.getElementById('file-input').value = '';
+  ansMode = false;
+  document.getElementById('ans-btn').textContent = '정답 표시 켜기';
+  document.getElementById('ans-btn').className   = 'btn btn-blue';
+};
+
+// ── Jump ──
+window.jumpTo = function() {
+  const n = parseInt(document.getElementById('jump').value);
+  if (n) renderQ(n - 1);
+};
+
+// ── 글자 크기 ──
+window.fsz = function(d) {
+  fontSize = Math.max(10, Math.min(30, fontSize + d));
+  document.documentElement.style.setProperty('--fs', fontSize + 'px');
+};
+
+// ── 점수 모달 ──
+window.openScore = function() {
+  let c = 0, w = 0, s = 0;
+  Object.values(results).forEach(v => { if (v==='correct') c++; else if (v==='wrong') w++; else if (v==='skip') s++; });
+  const submitted  = c + w;
+  const unsolved   = totalQ - submitted - s;
+  const totalUnsol = totalQ - submitted;
+  const pct        = submitted > 0 ? Math.round(c / submitted * 100) : 0;
+  const isPass     = pct >= 72;
+
+  document.getElementById('m-pct').textContent  = pct + '%';
+  document.getElementById('m-pct').className    = 'score-num ' + (isPass ? 'pass' : 'fail');
+  document.getElementById('m-frac').textContent = `정답 ${c} / 푼 문제 ${submitted}개  (미풀이/패스: ${totalUnsol}개)`;
+  const badge       = document.getElementById('m-badge');
+  badge.textContent = isPass ? '✅ 합격권 (72% 이상)' : '❌ 불합격권 (72% 미만)';
+  badge.className   = 'badge ' + (isPass ? 'badge-pass' : 'badge-fail');
+  document.getElementById('m-c').textContent = c;
+  document.getElementById('m-w').textContent = w;
+  document.getElementById('m-u').textContent = totalUnsol;
+
+  const base = totalQ || 1;
+  [['bc', c], ['bw', w], ['bu', totalUnsol]].forEach(([id, val]) => {
+    const p = Math.round(val / base * 100);
+    document.getElementById(id).style.width          = p + '%';
+    document.getElementById(id + '-pct').textContent = p + '%';
+  });
+
+  document.getElementById('score-modal').classList.add('open');
+};
+
+window.closeScore = function() { document.getElementById('score-modal').classList.remove('open'); };
+
+window.resetScore = function() {
+  if (!confirm('기록을 초기화하시겠습니까?\n체크한 답과 점수가 모두 삭제됩니다.')) return;
+  results = {}; choices = {};
+  updateProg();
+  closeScore();
+  renderQ(cur);
+};
+</script>
+</body>
+</html>
