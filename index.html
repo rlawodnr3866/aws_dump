@@ -455,10 +455,12 @@ function parseQuestions(fullText) {
     if (!matchNo) continue;
 
     const realNum = matchNo[1];
-    const ansMatch = chunk.match(/Answer:\s*([A-F](?:[\s,]*[A-F])*)/i);
+    const ansMatch = chunk.match(/Answer:\s*([A-F](?:[ \t,]*[A-F])*)/i);
     if (!ansMatch) continue;
 
-    const answerList = [...ansMatch[1].toUpperCase().replace(/[^A-F]/g, '')];
+    // Explanation: 또는 줄바꿈 전까지만 정답으로 인정
+    const ansRaw     = ansMatch[1].split(/Explanation|Community|Reference|\n/i)[0];
+    const answerList = [...ansRaw.toUpperCase().replace(/[^A-F]/g, '')];
     let rawContent = chunk.slice(0, ansMatch.index).trim();
 
     rawContent = rawContent.replace(/\n/g, ' ');
